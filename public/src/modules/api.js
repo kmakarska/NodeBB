@@ -33,79 +33,57 @@ async function call(options, callback) {
 	}
 }
 
-// general logic for function xhr and helpers derived from ChatGPT
-// Perform the actual HTTP request using fetch()
 async function xhr(options) {
-	const { url, headers, body } = await prepareRequest(options);
-	const response = await fetchResponse(url, options.method, headers, body);
-	return parseResponse(response);
-}
-
-// Prepare the request object by normalizing and adding headers
-async function prepareRequest(options) {
+	// Normalize body based on type
 	const { url } = options;
 	delete options.url;
 
-	// If data is not a FormData instance, serialize it to JSON
 	if (options.data && !(options.data instanceof FormData)) {
 		options.data = JSON.stringify(options.data || {});
 		options.headers['content-type'] = 'application/json; charset=utf-8';
 	}
-	// Allow plugins to modify options via hook
+
+	// Allow options to be modified by plugins, etc.
 	({ options } = await fireHook('filter:api.options', { options }));
 
-	// For backwards compatibility, map "data" to "body"
+	/**
+	 * Note: pre-v4 backwards compatibility
+	 *
+	 * This module now passes in "data" to xhr().
+	 * This is because the "filter:api.options" hook (and plugins using it) expect "data".
+	 * fetch() expects body, so we rename it here.
+	 *
+	 * In v4, replace all instances of "data" with "body" and record as breaking change.
+	 */
 	if (options.data) {
 		options.body = options.data;
 		delete options.data;
 	}
 
-	return {
-		url,
-		headers: options.headers,
-		body: options.body,
-	};
-}
-// Send the HTTP request and validate the response
-async function fetchResponse(url, method, headers, body) {
-	const res = await fetch(url, { method, headers, body });
-
-	// If the response is not OK, parse and throw an error
-	if (!res.ok) {
-		const error = await parseErrorResponse(res);
-		throw new Error(error);
-	}
-	return res;
-}
-
-// Parse errors from the response
-async function parseErrorResponse(res) {
-	const contentType = res.headers.get('content-type');
+	const res = await fetch(url, options);
+	const { headers } = res;
+	const contentType = headers.get('content-type');
 	const isJSON = contentType && contentType.startsWith('application/json');
 
-	// Parse JSON or return plain text error message
-	if (isJSON) {
-		const response = await res.json();
-		return response.status?.message || res.statusText;
-	}
-	return res.statusText;
-}
-
-// Parse the response based on content type
-async function parseResponse(res) {
-	const contentType = res.headers.get('content-type');
-	const isJSON = contentType && contentType.startsWith('application/json');
-
-	if (res.method !== 'HEAD') {
-		// Parse JSON or plain text response
-		const response = isJSON ? await res.json() : await res.text();
-		if (isJSON && response?.status && response?.response) {
-			return response.response;
+	let response;
+	if (options.method !== 'HEAD') {
+		if (isJSON) {
+			response = await res.json();
+		} else {
+			response = await res.text();
 		}
-		return response;
 	}
 
-	return null;// HEAD requests have no response body
+	if (!res.ok) {
+		if (response) {
+			throw new Error(isJSON ? response.status.message : response);
+		}
+		throw new Error(res.statusText);
+	}
+
+	return isJSON && response && response.hasOwnProperty('status') && response.hasOwnProperty('response') ?
+		response.response :
+		response;
 }
 
 export function get(route, data, onSuccess) {
