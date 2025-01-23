@@ -147,23 +147,39 @@ define('admin/settings', [
 			}, 1500);
 		}
 	};
-
+	// logic and part of code derived from chatGPT
 	function handleUploads() {
 		$('#content input[data-action="upload"]').each(function () {
 			const uploadBtn = $(this);
-			uploadBtn.on('click', function () {
-				uploader.show({
-					title: uploadBtn.attr('data-title'),
-					description: uploadBtn.attr('data-description'),
-					route: uploadBtn.attr('data-route'),
-					params: {},
-					showHelp: uploadBtn.attr('data-help') ? uploadBtn.attr('data-help') === 1 : undefined,
-					accept: uploadBtn.attr('data-accept'),
-				}, function (image) {
-					$('#' + uploadBtn.attr('data-target')).val(image);
-				});
+			attachUploadEvent(uploadBtn);
+		});
+	}
+	function attachUploadEvent(uploadBtn) {
+		uploadBtn.on('click', function () {
+			console.log('Katie was here');
+			const options = getUploadOptions(uploadBtn);
+			uploader.show(options, function (image) {
+				updateTargetInput(uploadBtn, image);
 			});
 		});
+	}
+	function getUploadOptions(uploadBtn) {
+		return {
+			title: uploadBtn.attr('data-title'),
+			description: uploadBtn.attr('data-description'),
+			route: uploadBtn.attr('data-route'),
+			params: {},
+			showHelp: parseShowHelp(uploadBtn),
+			accept: uploadBtn.attr('data-accept'),
+		};
+	}
+	function parseShowHelp(uploadBtn) {
+		const dataHelp = uploadBtn.attr('data-help');
+		return dataHelp ? dataHelp === '1' : undefined;
+	}
+	function updateTargetInput(uploadBtn, image) {
+		const targetId = uploadBtn.attr('data-target');
+		$('#' + targetId).val(image);
 	}
 
 	function setupTagsInput() {
