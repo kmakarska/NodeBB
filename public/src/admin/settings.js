@@ -147,7 +147,7 @@ define('admin/settings', [
 			}, 1500);
 		}
 	};
-
+	//logic and part of code derived from chatGPT
 	function handleUploads() {
 		$('#content input[data-action="upload"]').each(function () {
 			const uploadBtn = $(this);
@@ -156,6 +156,7 @@ define('admin/settings', [
 	}
 	function attachUploadEvent(uploadBtn) {
 		uploadBtn.on('click', function () {
+			console.log("Katie was here");
 			const options = getUploadOptions(uploadBtn);
 			uploader.show(options, function (image) {
 				updateTargetInput(uploadBtn, image);
